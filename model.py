@@ -36,4 +36,3 @@ with open("rf_lifeexp_model.pkl", "wb") as f:
 y_pred = model.predict(X_test)
 score = r2_score(y_test, y_pred)
 print(f"RandomForestRegressor R^2 score: {score:.3f}")
-

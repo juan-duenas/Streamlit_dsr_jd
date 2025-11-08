@@ -14,9 +14,50 @@ st.subheader(
 tab1, tab2, tab3 = st.tabs(["Global Overview", "Country Deep Dive", "Data Explorer"])
 
 with tab1:
-    st.header("Global Overview")
+    # Import the scatter plot and map functions
+    from plots import scatter_gdp_lifeexp, map_countries
+    # --- Metrics by year ---
+    st.subheader("Yearly Metrics Explorer")
+    @st.cache_data
+    def load_data():
+        DATA_URL = "https://raw.githubusercontent.com/JohannaViktor/streamlit_practical/refs/heads/main/global_development_data.csv"
+        return pd.read_csv(DATA_URL)
 
-    st.subheader("Input or modify the three fields below")
+    df = load_data()
+    # Find available years
+    year_col_candidates = ["year", "Year", "YEAR"]
+    year_col = next((c for c in year_col_candidates if c in df.columns), None)
+    country_col_candidates = ["country", "Country", "COUNTRY", "country_name"]
+    country_col = next((c for c in country_col_candidates if c in df.columns), None)
+    gdp_col = "GDP per capita"
+    headcount_col = "headcount_ratio_upper_mid_income_povline"
+    lifeexp_col = "Life Expectancy (IHME)"
+
+    if year_col is not None:
+        years = sorted(df[year_col].dropna().unique())
+        selected_year = st.selectbox("Please select a year", options=years, index=len(years)-1)
+        filtered = df[df[year_col] == selected_year]
+
+        # Calculate metrics
+        mean_lifeexp = filtered[lifeexp_col].mean() if lifeexp_col in filtered else float('nan')
+        median_gdp = filtered[gdp_col].median() if gdp_col in filtered else float('nan')
+        mean_headcount = filtered[headcount_col].mean() if headcount_col in filtered else float('nan')
+        num_countries = filtered[country_col].nunique() if country_col in filtered else float('nan')
+
+        mcol1, mcol2, mcol3, mcol4 = st.columns(4)
+        mcol1.metric("Mean Life Expectancy", f"{mean_lifeexp:.2f}")
+        mcol2.metric("Median GDP per capita", f"{median_gdp:,.0f}")
+        mcol3.metric("Mean Headcount Ratio", f"{mean_headcount:.2f}")
+        mcol4.metric("Number of Countries", f"{num_countries}")
+
+        # Show interactive scatter plot
+        st.subheader("Life Expectancy vs GDP per Capita (Selected Year)")
+        fig = scatter_gdp_lifeexp(filtered)
+        st.plotly_chart(fig)
+    else:
+        st.warning("No year column found in the dataset.")
+    
+    st.subheader("Input or modify the three fields below to get a prediction of life expectancy")
     # User inputs in three columns
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -85,6 +126,14 @@ with tab1:
     except Exception as e:
         st.error(f"Model file not found or could not be loaded: {e}")
         model_ready = False
+
+    # --- Map of countries in dataset ---
+    st.subheader("Map of countries in the dataset")
+    try:
+        map_fig = map_countries(df)
+        st.plotly_chart(map_fig, use_container_width=True)
+    except Exception as e:
+        st.warning(f"Could not render country map: {e}")
 
 with tab2:
     st.header("Country Deep Dive")
