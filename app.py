@@ -16,6 +16,76 @@ tab1, tab2, tab3 = st.tabs(["Global Overview", "Country Deep Dive", "Data Explor
 with tab1:
     st.header("Global Overview")
 
+    st.subheader("Input or modify the three fields below")
+    # User inputs in three columns
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        gdp = st.number_input("GDP per capita", min_value=0.0, value=10000.0, step=100.0)
+    with col2:
+        headcount = st.number_input("Headcount ratio (upper mid income poverty line)", min_value=0.0, max_value=100.0, value=10.0, step=0.1)
+    with col3:
+        year = st.number_input("Year", min_value=1900, max_value=2100, value=2020, step=1)
+
+    # Model prediction (load pre-trained model from pickle)
+    import numpy as np
+    import pickle
+    import plotly.express as px
+    FEATURES = ['GDP per capita', 'headcount_ratio_upper_mid_income_povline', 'year']
+
+    @st.cache_resource
+    def load_model():
+        with open("rf_lifeexp_model.pkl", "rb") as f:
+            return pickle.load(f)
+
+    try:
+        model = load_model()
+        model_ready = True
+
+        # Add prediction button here, between inputs and feature importance
+        if st.button("Predict Life Expectancy"):
+            if model_ready:
+                input_array = np.array([[gdp, headcount, year]])
+                pred = model.predict(input_array)[0]
+                st.success(f"Predicted Life Expectancy: {pred:.2f} years")
+            else:
+                st.warning("Model is not available. Please train and save the model first by running model.py.")
+        
+        # Display feature importances below prediction
+        st.subheader("Feature Importance")
+        # Map feature names to user-friendly labels
+        feature_label_map = {
+            'GDP per capita': 'GDP per capita',
+            'headcount_ratio_upper_mid_income_povline': 'Headcount ratio (upper mid income poverty line)',
+            'year': 'Year'
+        }
+        importances = pd.DataFrame({
+            'Feature': [feature_label_map[f] for f in FEATURES],
+            'Importance': model.feature_importances_
+        }).sort_values('Importance', ascending=True)
+
+        # Create interactive plotly bar chart
+        fig = px.bar(importances,
+                    x='Importance',
+                    y='Feature',
+                    orientation='h',
+                    title='Random Forest Feature Importance',
+                    template='simple_white')
+
+        fig.update_layout(
+            showlegend=False,
+            xaxis_title='Importance Score',
+            yaxis_title='Feature',
+            height=400,
+            width=800,
+            title_x=0.5
+        )
+
+        st.plotly_chart(fig)
+                      
+    except Exception as e:
+        st.error(f"Model file not found or could not be loaded: {e}")
+        model_ready = False
+
 with tab2:
     st.header("Country Deep Dive")
 
